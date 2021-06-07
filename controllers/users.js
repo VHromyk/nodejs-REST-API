@@ -1,8 +1,10 @@
 const jwt = require('jsonwebtoken')
 const JWT_SECRET_KEY = process.env.JWT_SECRET_KEY
 require('dotenv').config()
+const UploadAvatar = require('../services/upload-avatars-local')
 const Users = require('../model/schemas/users')
 const { httpCode } = require('../helpers/constants')
+const AVATARS_OF_USERS = process.env.AVATARS_OF_USERS
 
 const register = async (req, res, next) => {
   try {
@@ -15,7 +17,7 @@ const register = async (req, res, next) => {
       })
     }
     const newUser = await Users.create(req.body)
-    const { id, name, email, subscription } = newUser
+    const { id, name, email, subscription, avatar } = newUser
     return res.status(httpCode.CREATED).json({
       status: 'success',
       code: httpCode.CREATED,
@@ -24,6 +26,7 @@ const register = async (req, res, next) => {
         name,
         email,
         subscription,
+        avatar,
       },
     })
   } catch (error) {
@@ -63,8 +66,31 @@ const logout = async (req, res, next) => {
   return res.status(httpCode.NO_CONTENT).json({})
 }
 
+const avatars = async (req, res, next) => {
+  try {
+    const id = req.user.id
+    const temp = new UploadAvatar(AVATARS_OF_USERS)
+    const avatarURL = await temp.saveAvatarToStatic({
+      idUser: id,
+      pathFile: req.file.path,
+      name: req.file.filename,
+      oldFile: req.user.avatar,
+    })
+    await Users.updateAvatar(id, avatarURL)
+    console.log(req.hostname)
+    return res.json({
+      status: 'success',
+      code: httpCode.OK,
+      data: { avatarURL },
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
 module.exports = {
   register,
   login,
   logout,
+  avatars,
 }
